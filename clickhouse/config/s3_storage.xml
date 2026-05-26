@@ -1,0 +1,26 @@
+<clickhouse>
+    <storage_configuration>
+        <disks>
+            <!-- Định nghĩa ổ đĩa ảo kết nối tới LocalStack S3 -->
+            <localstack_s3>
+                <type>s3</type>
+                <!-- URL nội bộ của LocalStack trong Docker network -->
+                <endpoint>http://localstack:4566/yt-analytics-bucket/</endpoint>
+                <access_key_id>test</access_key_id>
+                <secret_access_key>test</secret_access_key>
+                <!-- Sử dụng path addressing style cho LocalStack tương thích tốt nhất -->
+                <s3_addressing_style>path</s3_addressing_style>
+            </localstack_s3>
+        </disks>
+        <policies>
+            <!-- Policy áp dụng ổ đĩa s3 này -->
+            <s3_policy>
+                <volumes>
+                    <main>
+                        <disk>localstack_s3</disk>
+                    </main>
+                </volumes>
+            </s3_policy>
+        </policies>
+    </storage_configuration>
+</clickhouse>
