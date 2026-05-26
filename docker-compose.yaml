@@ -1,0 +1,61 @@
+services:
+  # --- AWS Emulator (LocalStack) ---
+  localstack:
+    image: localstack/localstack:3.8.1
+    container_name: localstack
+    ports:
+      - "4566:4566"            # Edge port cho mọi AWS services
+      - "4510-4559:4510-4559"  # Port range cho external services (như Lambda)
+    environment:
+      - SERVICES=s3,lambda,iam,logs,sts
+      - DEBUG=0
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    volumes:
+      # Lưu trữ trạng thái tạm thời của localstack
+      - localstack-data:/var/lib/localstack
+      # Bắt buộc để Localstack có thể spawn các container chạy code Lambda
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      # Thư mục chứa các shell script cấu hình tài nguyên khi LocalStack sẵn sàng
+      - "./localstack/init:/etc/localstack/init/ready.d"
+      # Mount dataset thô để các scripts hoặc Lambda tiện đọc ghi lúc khởi tạo
+      - "./data/raw:/data/raw"
+    networks:
+      - youtube-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # (Tạm thời bỏ ClickHouse để test data pipeline trước)
+  # clickhouse:
+  #   image: clickhouse/clickhouse-server:latest
+  #   container_name: clickhouse
+  #   ports:
+  #     - "8123:8123"
+  #     - "9000:9000"
+  #   volumes:
+  #     - "./clickhouse/config/s3_storage.xml:/etc/clickhouse-server/config.d/s3_storage.xml"
+  #     - "./clickhouse/init:/docker-entrypoint-initdb.d"
+  #     - clickhouse-data:/var/lib/clickhouse
+  #   environment:
+  #     - CLICKHOUSE_DB=youtube_analytics
+  #     - CLICKHOUSE_USER=default
+  #     - CLICKHOUSE_PASSWORD=clickhouse123
+  #   depends_on:
+  #     localstack:
+  #       condition: service_healthy
+  #   networks:
+  #     - youtube-net
+
+volumes:
+  localstack-data:
+  # clickhouse-data:
+
+networks:
+  youtube-net:
+    driver: bridge
