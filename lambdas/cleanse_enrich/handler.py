@@ -53,7 +53,14 @@ def lambda_handler(event, context):
             category_map[cat_id] = cat_title
             
         csv_obj = s3_client.get_object(Bucket=landing_bucket, Key=csv_key)
-        df = pd.read_csv(io.BytesIO(csv_obj["Body"].read()), on_bad_lines="skip")
+        csv_data = csv_obj["Body"].read()
+        
+        # Thử đọc bằng UTF-8 trước, nếu lỗi thì chuyển sang latin-1
+        try:
+            df = pd.read_csv(io.BytesIO(csv_data), on_bad_lines="skip", encoding="utf-8")
+        except UnicodeDecodeError:
+            print(f"Lưu ý: Không thể decode UTF-8 cho {csv_key}. Chuyển sang sử dụng encoding='latin-1'")
+            df = pd.read_csv(io.BytesIO(csv_data), on_bad_lines="skip", encoding="latin-1")
         
         print(f"Đọc thành công {len(df)} dòng dữ liệu từ {csv_key}")
         
@@ -137,13 +144,36 @@ def lambda_handler(event, context):
 
 # Thêm block này để chạy test trực tiếp khi gọi python handler.py
 if __name__ == "__main__":
-    # Đặt giá trị biến môi trường giả lập (nếu chưa có)
     os.environ["LANDING_BUCKET"] = os.environ.get("LANDING_BUCKET", "yt-landing-bucket")
     os.environ["CLEANSED_BUCKET"] = os.environ.get("CLEANSED_BUCKET", "yt-cleansed-bucket")
     
-    # Test thử với quốc gia FR (hoặc bất kỳ quốc gia nào bạn đã tải lên thành công)
-    test_event = {"country": "FR"}
-    print("--- CHẠY THỬ LAMBDA CLEANSE ENRICH LOCALLY ---")
-    result = lambda_handler(test_event, None)
-    print("Kết quả chạy thử:")
-    print(result)
+    print("--- CHẠY THỬ LAMBDA CLEANSE ENRICH LOCALLY (ALL COUNTRIES) ---")
+    
+    # Liệt kê tất cả các file trong Landing Bucket để tìm các quốc gia có dữ liệu
+    try:
+        response = s3_client.list_objects_v2(Bucket=os.environ["LANDING_BUCKET"])
+        contents = response.get("Contents", [])
+        
+        # Tìm các file CSV dạng [XX]videos.csv
+        countries = []
+        for obj in contents:
+            key = obj["Key"]
+            match = re.match(r"^([A-Z]{2})videos\.csv$", key)
+            if match:
+                countries.append(match.group(1))
+                
+        if not countries:
+            print("Không tìm thấy tệp tin CSV của quốc gia nào trong landing bucket.")
+            print("Vui lòng chạy scripts/upload_to_landing.py trước!")
+        else:
+            print(f"Tìm thấy dữ liệu của các quốc gia trong Landing Bucket: {countries}")
+            for country in countries:
+                print(f"\n>> Đang xử lý quốc gia: {country} ...")
+                try:
+                    result = lambda_handler({"country": country}, None)
+                    print(f"Xử lý thành công {country}: {result}")
+                except Exception as err:
+                    print(f"Lỗi khi xử lý quốc gia {country}: {err}")
+                    
+    except Exception as e:
+        print(f"Không thể kết nối hoặc lấy danh sách file từ S3 landing bucket: {e}")
