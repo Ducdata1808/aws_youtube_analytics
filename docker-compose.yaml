@@ -31,30 +31,33 @@ services:
       timeout: 5s
       retries: 5
 
-  # (Tạm thời bỏ ClickHouse để test data pipeline trước)
-  # clickhouse:
-  #   image: clickhouse/clickhouse-server:latest
-  #   container_name: clickhouse
-  #   ports:
-  #     - "8123:8123"
-  #     - "9000:9000"
-  #   volumes:
-  #     - "./clickhouse/config/s3_storage.xml:/etc/clickhouse-server/config.d/s3_storage.xml"
-  #     - "./clickhouse/init:/docker-entrypoint-initdb.d"
-  #     - clickhouse-data:/var/lib/clickhouse
-  #   environment:
-  #     - CLICKHOUSE_DB=youtube_analytics
-  #     - CLICKHOUSE_USER=default
-  #     - CLICKHOUSE_PASSWORD=clickhouse123
-  #   depends_on:
-  #     localstack:
-  #       condition: service_healthy
-  #   networks:
-  #     - youtube-net
+  # --- Analytical Database (ClickHouse) ---
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    ports:
+      - "8123:8123"            # HTTP port (Kết nối HTTP / PowerBI)
+      - "9000:9000"            # Native TCP port (clickhouse-client)
+    volumes:
+      # File cấu hình kết nối S3 với LocalStack
+      - "./clickhouse/config/s3_storage.xml:/etc/clickhouse-server/config.d/s3_storage.xml"
+      # Tự động chạy script tạo schema/bảng khi DB khởi tạo
+      - "./clickhouse/init:/docker-entrypoint-initdb.d"
+      # Lưu trữ dữ liệu ClickHouse
+      - clickhouse-data:/var/lib/clickhouse
+    environment:
+      - CLICKHOUSE_DB=youtube_analytics
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=clickhouse123
+    depends_on:
+      localstack:
+        condition: service_healthy
+    networks:
+      - youtube-net
 
 volumes:
   localstack-data:
-  # clickhouse-data:
+  clickhouse-data:
 
 networks:
   youtube-net:
