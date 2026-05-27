@@ -64,3 +64,25 @@ CREATE TABLE IF NOT EXISTS youtube_analytics.agg_time_analysis
     avg_publish_hour     Float64
 )
 ENGINE = S3('http://localstack:4566/yt-analytics-bucket/agg_time_analysis/*.parquet', 'test', 'test', 'Parquet');
+
+
+-- 5. Bảng Dimension: Thông tin Quốc Gia (dim_country)
+CREATE TABLE IF NOT EXISTS youtube_analytics.dim_country
+(
+    country      String,
+    country_name String
+)
+ENGINE = TinyLog;
+
+-- Nạp sẵn thông tin mapping mã nước và tên đầy đủ của 10 quốc gia trong dataset Kaggle
+INSERT INTO youtube_analytics.dim_country VALUES 
+('US', 'United States'),
+('GB', 'United Kingdom'),
+('CA', 'Canada'),
+('FR', 'France'),
+('DE', 'Germany'),
+('RU', 'Russia'),
+('MX', 'Mexico'),
+('KR', 'South Korea'),
+('JP', 'Japan'),
+('IN', 'India');
