@@ -3,3 +3,4 @@ plan.md
 .venv
 data/
 run_manually.txt
+docker_compose_log.txt
