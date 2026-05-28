@@ -5,3 +5,4 @@ pyarrow>=18.0.0
 fastparquet>=2024.11.0
 kaggle>=1.6.0
 python-dotenv>=1.0.1
+apache-airflow-providers-amazon>=8.12.0
