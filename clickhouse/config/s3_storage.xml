@@ -6,8 +6,8 @@
                 <type>s3</type>
                 <!-- URL nội bộ của LocalStack trong Docker network -->
                 <endpoint>http://localstack:4566/yt-analytics-bucket/</endpoint>
-                <access_key_id>LKIAQAAAAAAAE35EH7NG</access_key_id>
-                <secret_access_key>pmqAy9H4MJGSGh1HYr+NF5XxbnrlDHdpjnTOt6gV</secret_access_key>
+                <access_key_id>LKIAQAAAAAAABVGJTMII</access_key_id>
+                <secret_access_key>+M51tYL0MMx7z+TNb15LeZknHKpfDQOZYP7TdwFX</secret_access_key>
                 <!-- Sử dụng path addressing style cho LocalStack tương thích tốt nhất -->
                 <s3_addressing_style>path</s3_addressing_style>
             </localstack_s3>

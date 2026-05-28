@@ -4,3 +4,6 @@ plan.md
 data/
 run_manually.txt
 docker_compose_log.txt
+lambdas/*/vendor/
+lambdas/*/*.zip
+*.json
