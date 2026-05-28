@@ -7,3 +7,4 @@ docker_compose_log.txt
 lambdas/*/vendor/
 lambdas/*/*.zip
 *.json
+airflow/logs/*

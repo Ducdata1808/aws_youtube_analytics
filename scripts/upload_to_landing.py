@@ -7,8 +7,14 @@ from dotenv import load_dotenv
 # Load biến môi trường từ .env
 load_dotenv()
 
-# Cấu hình kết nối tới LocalStack S3
-LOCALSTACK_ENDPOINT = os.getenv("LOCALSTACK_ENDPOINT", "http://localhost:4566")
+# Kiểm tra nếu chạy trong môi trường Docker/Container thì đổi endpoint sang localstack
+IS_INSIDE_DOCKER = os.path.exists("/.dockerenv")
+
+if IS_INSIDE_DOCKER:
+    LOCALSTACK_ENDPOINT = "http://localstack:4566"
+else:
+    LOCALSTACK_ENDPOINT = os.getenv("LOCALSTACK_ENDPOINT", "http://localhost:4566")
+
 LANDING_BUCKET = os.getenv("LANDING_BUCKET", "yt-landing-bucket")
 RAW_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "raw")
 
@@ -24,11 +30,13 @@ s3_client = boto3.client(
 
 def upload_files():
     print(f"Bắt đầu upload dữ liệu từ: {RAW_DATA_DIR}")
+    print(f"Using Endpoint S3: {LOCALSTACK_ENDPOINT}")
     print(f"Target Bucket: {LANDING_BUCKET}")
     
     if not os.path.exists(RAW_DATA_DIR):
-        print(f"LỖI: Thư mục {RAW_DATA_DIR} không tồn tại. Hãy tải bộ dữ liệu từ Kaggle về trước.")
-        return
+        error_msg = f"LỖI: Thư mục {RAW_DATA_DIR} không tồn tại. Hãy tải bộ dữ liệu từ Kaggle về trước."
+        print(error_msg)
+        raise Exception(error_msg)
 
     # Tìm các file csv và json trong data/raw
     csv_files = glob.glob(os.path.join(RAW_DATA_DIR, "*videos.csv"))
@@ -36,9 +44,9 @@ def upload_files():
     files_to_upload = csv_files + json_files
 
     if not files_to_upload:
-        print("Không tìm thấy file .csv hoặc .json nào trong data/raw.")
-        print("Vui lòng tải bộ dữ liệu 'Trending YouTube Video Statistics' từ Kaggle về và giải nén vào data/raw.")
-        return
+        error_msg = "Không tìm thấy file .csv hoặc .json nào trong data/raw."
+        print(error_msg)
+        raise Exception(error_msg)
 
     for file_path in files_to_upload:
         file_name = os.path.basename(file_path)
@@ -48,6 +56,8 @@ def upload_files():
             print(f"Đã upload thành công {file_name}")
         except Exception as e:
             print(f"Lỗi khi upload {file_name}: {e}")
+            # Raise exception để Airflow nhận diện lỗi và đánh dấu Task là FAILED
+            raise e
 
     print("Hoàn thành quá trình tải dữ liệu lên landing bucket!")
 
