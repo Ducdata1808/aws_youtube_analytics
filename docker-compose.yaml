@@ -62,9 +62,89 @@ services:
     networks:
       - youtube-net
 
+  # --- Airflow Metadata Database ---
+  postgres:
+    image: postgres:13
+    container_name: airflow-postgres
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    networks:
+      - youtube-net
+
+  # --- Airflow DB Init (Chạy 1 lần để tạo bảng và tài khoản admin) ---
+  airflow-init:
+    image: apache/airflow:2.7.2-python3.10
+    container_name: airflow-init
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+    command: >
+      bash -c "airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin"
+    networks:
+      - youtube-net
+    user: "${AIRFLOW_UID:-50000}:0"
+
+  # --- Airflow Webserver (UI Port 8080) ---
+  airflow-webserver:
+    image: apache/airflow:2.7.2-python3.10
+    container_name: airflow-webserver
+    depends_on:
+      - postgres
+      - airflow-init
+      - localstack
+    environment:
+      - LOAD_EX=nym  # Tắt các DAGs mặc định ví dụ của Airflow
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - LOCALSTACK_ENDPOINT=http://localstack:4566  # Trỏ endpoint upload_to_landing sang container localstack
+    command: webserver
+    volumes:
+      - ./airflow:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./.env:/opt/airflow/.env
+      - ./airflow/logs:/opt/airflow/logs  # Mount thư mục log dùng chung
+      - ./data:/opt/airflow/data  # Mount data để upload_to_landing có thể đọc dữ liệu thô
+    ports:
+      - "8080:8080"
+    networks:
+      - youtube-net
+    user: "${AIRFLOW_UID:-50000}:0"
+
+  # --- Airflow Scheduler ---
+  airflow-scheduler:
+    image: apache/airflow:2.7.2-python3.10
+    container_name: airflow-scheduler
+    depends_on:
+      - postgres
+      - airflow-init
+      - localstack
+    environment:
+      - LOAD_EX=nym
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - LOCALSTACK_ENDPOINT=http://localstack:4566  # Trỏ endpoint upload_to_landing sang container localstack
+    command: scheduler
+    volumes:
+      - ./airflow:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./.env:/opt/airflow/.env
+      - ./airflow/logs:/opt/airflow/logs  # Mount thư mục log dùng chung
+      - ./data:/opt/airflow/data  # Mount data để upload_to_landing có thể đọc dữ liệu thô
+    networks:
+      - youtube-net
+    user: "${AIRFLOW_UID:-50000}:0"
+
 volumes:
   localstack-data:
   clickhouse-data:
+  airflow-db-data:
 
 networks:
   youtube-net:
