@@ -26,6 +26,8 @@ services:
       - "./data/raw:/data/raw"
       # Mount ClickHouse config để script có thể cập nhật IAM key
       - "./clickhouse/config:/opt/clickhouse-config"
+      # Mount code lambda
+      - "./lambdas:/opt/lambdas"
     networks:
       - youtube-net
     healthcheck:
