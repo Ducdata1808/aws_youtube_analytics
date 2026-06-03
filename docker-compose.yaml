@@ -4,8 +4,8 @@ services:
     image: localstack/localstack:3.8.1
     container_name: localstack
     ports:
-      - "4566:4566"            # Edge port cho mọi AWS services
-      - "4510-4559:4510-4559"  # Port range cho external services (như Lambda)
+      - "4566:4566"            # Edge port for all AWS services
+      - "4510-4559:4510-4559"  # Port range for external services (like Lambda)
     environment:
       - SERVICES=s3,lambda,iam,logs,sts
       - DEBUG=0
@@ -16,15 +16,15 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - ENFORCE_IAM=true
     volumes:
-      # Lưu trữ trạng thái tạm thời của localstack
+      # Save temporary files of localstack
       - localstack-data:/var/lib/localstack
-      # Bắt buộc để Localstack có thể spawn các container chạy code Lambda
+      # Required for Localstack to spawn containers running Lambda code
       - "/var/run/docker.sock:/var/run/docker.sock"
-      # Thư mục chứa các shell script cấu hình tài nguyên khi LocalStack sẵn sàng
+      # Folder containing shell scripts to configure resources when LocalStack is ready
       - "./localstack/init:/etc/localstack/init/ready.d"
-      # Mount dataset thô để các scripts hoặc Lambda tiện đọc ghi lúc khởi tạo
+      # Mount raw dataset for scripts or Lambda to read and write during initialization
       - "./data/raw:/data/raw"
-      # Mount ClickHouse config để script có thể cập nhật IAM key
+      # Mount ClickHouse config to update IAM key
       - "./clickhouse/config:/opt/clickhouse-config"
       # Mount code lambda
       - "./lambdas:/opt/lambdas"
@@ -41,14 +41,14 @@ services:
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse
     ports:
-      - "8123:8123"            # HTTP port (Kết nối HTTP / PowerBI)
+      - "8123:8123"            # HTTP port (Connect HTTP / PowerBI)
       - "9000:9000"            # Native TCP port (clickhouse-client)
     volumes:
-      # File cấu hình kết nối S3 với LocalStack
+      # Configuration file for S3 connection with LocalStack
       - "./clickhouse/config/s3_storage.xml:/etc/clickhouse-server/config.d/s3_storage.xml"
-      # Tự động chạy script tạo schema/bảng khi DB khởi tạo
+      # Automatically run scripts to create schema/tables when DB is initialized
       - "./clickhouse/init:/docker-entrypoint-initdb.d"
-      # Lưu trữ dữ liệu ClickHouse
+      # Store ClickHouse data
       - clickhouse-data:/var/lib/clickhouse
     environment:
       - CLICKHOUSE_DB=youtube_analytics
@@ -75,7 +75,7 @@ services:
     networks:
       - youtube-net
 
-  # --- Airflow DB Init (Chạy 1 lần để tạo bảng và tài khoản admin) ---
+  # --- Airflow DB Init (Run once to create tables and admin account) ---
   airflow-init:
     image: apache/airflow:2.7.2-python3.10
     container_name: airflow-init
@@ -98,18 +98,18 @@ services:
       - airflow-init
       - localstack
     environment:
-      - LOAD_EX=nym  # Tắt các DAGs mặc định ví dụ của Airflow
+      - LOAD_EX=nym  # Disable default Airflow example DAGs
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AWS_ENDPOINT_URL=http://localstack:4566
-      - LOCALSTACK_ENDPOINT=http://localstack:4566  # Trỏ endpoint upload_to_landing sang container localstack
+      - LOCALSTACK_ENDPOINT=http://localstack:4566  # Point upload_to_landing endpoint to localstack container
     command: webserver
     volumes:
       - ./airflow:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
       - ./.env:/opt/airflow/.env
-      - ./airflow/logs:/opt/airflow/logs  # Mount thư mục log dùng chung
-      - ./data:/opt/airflow/data  # Mount data để upload_to_landing có thể đọc dữ liệu thô
+      - ./airflow/logs:/opt/airflow/logs  # Mount shared log folder
+      - ./data:/opt/airflow/data  # Mount data for upload_to_landing to read raw data
     ports:
       - "8080:8080"
     networks:
@@ -129,14 +129,14 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AWS_ENDPOINT_URL=http://localstack:4566
-      - LOCALSTACK_ENDPOINT=http://localstack:4566  # Trỏ endpoint upload_to_landing sang container localstack
+      - LOCALSTACK_ENDPOINT=http://localstack:4566  # Point upload_to_landing endpoint to localstack container
     command: scheduler
     volumes:
       - ./airflow:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
       - ./.env:/opt/airflow/.env
-      - ./airflow/logs:/opt/airflow/logs  # Mount thư mục log dùng chung
-      - ./data:/opt/airflow/data  # Mount data để upload_to_landing có thể đọc dữ liệu thô
+      - ./airflow/logs:/opt/airflow/logs  # Mount shared log folder
+      - ./data:/opt/airflow/data  # Mount data for upload_to_landing to read raw data
     networks:
       - youtube-net
     user: "${AIRFLOW_UID:-50000}:0"

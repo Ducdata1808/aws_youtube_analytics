@@ -1,27 +1,27 @@
 #!/bin/bash
 
-# Script đóng gói Lambda tối ưu hóa dung lượng (Unzipped size < 250MB)
-# Có thể chạy độc lập ở WSL Ubuntu không phụ thuộc vào Docker/LocalStack.
+# Lambda packaging script optimized for size (Unzipped size < 250MB)
+# Can be run independently in WSL Ubuntu without dependency on Docker/LocalStack.
 
 echo "=========================================================="
 echo "          BUILDING & OPTIMIZING LAMBDA ZIP PACKAGES       "
 echo "=========================================================="
 
-# Đảm bảo lệnh zip được cài đặt
+# Ensure zip files are installed
 if ! command -v zip &> /dev/null; then
     echo "ERROR: 'zip' command is not installed in WSL."
     echo "Please run: sudo apt-get update && sudo apt-get install -y zip"
     exit 1
 fi
 
-# Lấy đường dẫn tuyệt đối của dự án
+# Get the absolute path of the project
 PROJECT_ROOT="/home/duc1808/aws_youtube_analytics"
 cd "${PROJECT_ROOT}"
 
 LAMBDAS=("cleanse_enrich" "transform_analytics")
 
 for LAMBDA in "${LAMBDAS[@]}"; do
-    # Về lại thư mục gốc trước mỗi lần build để tránh lỗi mất thư mục của pip
+    # Back to the root directory before each build to avoid pip directory loss
     cd "${PROJECT_ROOT}"
 
     echo "----------------------------------------------------------"
@@ -32,15 +32,15 @@ for LAMBDA in "${LAMBDAS[@]}"; do
     BUILD_DIR="/tmp/build_${LAMBDA}"
     ZIP_PATH="${LAMBDA_DIR}/lambda_${LAMBDA}.zip"
     
-    # 1. Tạo mới và dọn dẹp thư mục build tuyệt đối
+    # 1. Create and clean up the absolute build directory
     rm -rf "${BUILD_DIR}"
     rm -f "${ZIP_PATH}"
     mkdir -p "${BUILD_DIR}"
     
-    # 2. Cài đặt các thư viện tương thích với môi trường AWS Lambda Linux x86_64
+    # 2. Install dependencies compatible with AWS Lambda Linux x86_64 environment
     if [ -f "${LAMBDA_DIR}/requirements.txt" ]; then
         echo "Installing AWS Lambda compatible dependencies (manylinux)..."
-        # Sử dụng các cờ --platform và --only-binary để tải đúng bản phân phối cho AWS Lambda (Python 3.10)
+        # Use --platform and --only-binary flags to download the correct distribution for AWS Lambda (Python 3.10)
         pip install \
             --target "${BUILD_DIR}" \
             -r "${LAMBDA_DIR}/requirements.txt" \
@@ -54,10 +54,10 @@ for LAMBDA in "${LAMBDAS[@]}"; do
         echo "No requirements.txt found. Packing code only."
     fi
     
-    # 3. Copy source code handler vào thư mục build
+    # 3. Copy source code handler to build directory
     cp "${LAMBDA_DIR}/handler.py" "${BUILD_DIR}/"
     
-    # 4. Tối ưu hóa dung lượng: Xoá bỏ toàn bộ file tests, cache, doc thừa
+    # 4. Optimize package size (removing comments, tests, pycache)
     echo "Optimizing package size (removing comments, tests, pycache)..."
     cd "${BUILD_DIR}"
     find . -type d -name "tests" -exec rm -rf {} +
@@ -67,14 +67,14 @@ for LAMBDA in "${LAMBDAS[@]}"; do
     find . -name "*.dist-info" -exec rm -rf {} +
     find . -name "*.egg-info" -exec rm -rf {} +
     
-    # Xoá các file thực thi nhị phân khổng lồ không dùng đến nếu có
+    # Remove large binary executable files if any
     find . -name "*.so" -exec strip --strip-unneeded {} + 2>/dev/null || true
     
-    # 5. Đóng gói thành file .zip
+    # 5. Zip package
     echo "Zipping package..."
     zip -r -q "${ZIP_PATH}" .
     
-    # Lấy dung lượng file zip
+    # Get zip file size
     if [ -f "${ZIP_PATH}" ]; then
         ZIP_SIZE=$(du -sh "${ZIP_PATH}" | cut -f1)
         echo "Zip package created successfully: ${ZIP_SIZE}"
@@ -83,11 +83,11 @@ for LAMBDA in "${LAMBDAS[@]}"; do
         echo "ERROR: Failed to create zip package."
     fi
     
-    # Dọn dẹp thư mục build tạm
+    # Clean up the temporary build directory
     rm -rf "${BUILD_DIR}"
 done
 
-# Trả về thư mục gốc
+# Back to the root directory
 cd "${PROJECT_ROOT}"
 
 echo "=========================================================="
