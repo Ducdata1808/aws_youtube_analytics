@@ -4,12 +4,12 @@ import io
 import boto3
 import pandas as pd
 
-# Kiểm tra xem có đang chạy cục bộ (ngoài LocalStack container) hay không
+# Check if running locally (outside LocalStack container)
 IS_LOCAL = not os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
 AWS_REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
 if IS_LOCAL:
-    print("Chạy ở local: Cấu hình boto3 kết nối tới LocalStack endpoint (http://127.0.0.1:4566)")
+    print("Running locally: Configuring boto3 to connect to LocalStack endpoint (http://127.0.0.1:4566)")
     s3_client = boto3.client(
         "s3",
         endpoint_url="http://127.0.0.1:4566",
@@ -21,7 +21,7 @@ else:
     s3_client = boto3.client("s3")
 
 def lambda_handler(event, context):
-    print(f"Nhận event: {json.dumps(event)}")
+    print(f"Event received: {json.dumps(event)}")
     
     cleansed_bucket = os.environ.get("CLEANSED_BUCKET", "yt-cleansed-bucket")
     analytics_bucket = os.environ.get("ANALYTICS_BUCKET", "yt-analytics-bucket")
@@ -33,23 +33,23 @@ def lambda_handler(event, context):
         parquet_keys = [obj["Key"] for obj in objects if obj["Key"].endswith(".parquet")]
         
         if not parquet_keys:
-            print("Không tìm thấy tệp Parquet nào trong cleansed bucket để transform.")
+            print("No Parquet files found in cleansed bucket for transform.")
             return {
                 "statusCode": 200,
-                "body": json.dumps({"message": "Không có tệp Parquet nào được tìm thấy."})
+                "body": json.dumps({"message": "No Parquet files found."})
             }
             
-        print(f"Tìm thấy các key Parquet trong cleansed bucket: {parquet_keys}")
+        print(f"Found Parquet keys in cleansed bucket: {parquet_keys}")
         
         df_list = []
         for key in parquet_keys:
-            print(f"Đang đọc tệp cleansed: {key}")
+            print(f"Reading cleansed file: {key}")
             obj = s3_client.get_object(Bucket=cleansed_bucket, Key=key)
             country_df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
             df_list.append(country_df)
             
         df = pd.concat(df_list, ignore_index=True)
-        print(f"Tổng số bản ghi tích hợp từ các quốc gia: {len(df)}")
+        print(f"Total records integrated from all countries: {len(df)}")
         
         # --- TRANSFORM & AGGREGATE ---
         
@@ -69,7 +69,7 @@ def lambda_handler(event, context):
                 Body=fact_buffer.getvalue()
             )
             
-        # 2. Agg Table 1: agg_category_stats (Thống kê theo category & country)
+        # 2. Agg Table 1: agg_category_stats (Statistics by category & country)
         agg_cat = df.groupby(["country", "category_name"]).agg(
             total_videos=("video_id", "count"),
             avg_views=("views", "mean"),
@@ -87,7 +87,7 @@ def lambda_handler(event, context):
             Body=cat_buffer.getvalue()
         )
         
-        # 3. Agg Table 2: agg_channel_performance (Thống kê theo kênh/channel)
+        # 3. Agg Table 2: agg_channel_performance (Statistics by channel)
         agg_channel = df.groupby(["country", "channel_title"]).agg(
             trending_count=("video_id", "count"),
             unique_videos=("video_id", "nunique"),
@@ -111,7 +111,7 @@ def lambda_handler(event, context):
             Body=channel_buffer.getvalue()
         )
         
-        # 4. Agg Table 3: agg_time_analysis (Phân tích xu hướng theo thời gian)
+        # 4. Agg Table 3: agg_time_analysis (Time trend analysis)
         time_df = df.copy()
         time_df["trending_date"] = pd.to_datetime(time_df["trending_date"])
         time_df["day_of_week"] = time_df["trending_date"].dt.day_name()
@@ -139,28 +139,28 @@ def lambda_handler(event, context):
             Body=time_buffer.getvalue()
         )
         
-        print("Transform thành công và đẩy các bảng dữ liệu lên Analytics Bucket!")
+        print("Transform & Aggregation successfully and uploaded to Analytics Bucket!")
         return {
             "statusCode": 200,
             "body": json.dumps({
-                "message": "Transform & Aggregation thành công!",
+                "message": "Transform & Aggregation successfully!",
                 "fact_records": len(fact_df),
                 "analytics_s3_uri": f"s3://{analytics_bucket}/"
             })
         }
         
     except Exception as e:
-        print(f"LỖI trong Lambda transform_analytics: {str(e)}")
+        print(f"ERROR in Lambda transform_analytics: {str(e)}")
         import traceback
         traceback.print_exc()
         raise e
 
-# Thêm block này để chạy test trực tiếp khi gọi python handler.py
+# Add this block to run the test directly when calling python handler.py
 if __name__ == "__main__":
     os.environ["CLEANSED_BUCKET"] = os.environ.get("CLEANSED_BUCKET", "yt-cleansed-bucket")
     os.environ["ANALYTICS_BUCKET"] = os.environ.get("ANALYTICS_BUCKET", "yt-analytics-bucket")
     
-    print("--- CHẠY THỬ LAMBDA TRANSFORM ANALYTICS LOCALLY ---")
+    print("--- RUNNING LAMBDA TRANSFORM ANALYTICS LOCALLY ---")
     result = lambda_handler({}, None)
-    print("Kết quả chạy thử:")
+    print("Test result:")
     print(result)

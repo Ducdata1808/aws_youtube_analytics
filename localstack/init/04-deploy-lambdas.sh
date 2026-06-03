@@ -4,8 +4,8 @@ echo "=========================================================="
 echo "    UPLOADING LAMBDA ZIP PACKAGES TO S3 & DEPLOYING       "
 echo "=========================================================="
 
-# Đợi bucket được tạo từ script 01-create-buckets.sh
-# Mặc dù các script chạy theo thứ tự alphabet, việc check và đợi giúp đảm bảo an toàn tuyệt đối
+# Wait for bucket to be created from script 01-create-buckets.sh
+# Although scripts run alphabetically, checking and waiting ensures absolute safety
 DEPLOY_BUCKET="yt-landing-bucket"
 DEPLOY_PREFIX="deploy"
 
@@ -14,10 +14,10 @@ until awslocal s3api head-bucket --bucket "${DEPLOY_BUCKET}" 2>/dev/null; do
     sleep 1
 done
 
-# Định nghĩa ARN IAM Role cho Lambda
+# Define ARN IAM Role for Lambda
 ROLE_ARN="arn:aws:iam::000000000000:role/lambda-s3-role"
 
-# Mount path từ host
+# Mount path from host
 SRC_DIR="/opt/lambdas"
 
 # 1. Lambda Cleanse & Enrich

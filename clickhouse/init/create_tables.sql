@@ -1,7 +1,7 @@
--- Tự động tạo database nếu chưa tồn tại
+-- Automatically create database if not exists
 CREATE DATABASE IF NOT EXISTS youtube_analytics;
 
--- 1. Bảng Fact chính: Chi tiết các trending videos (Sử dụng wildcard **/*.parquet để quét tất cả country partitions)
+-- 1. Main Fact table: Trending videos details (Using wildcard **/*.parquet to scan all country partitions)
 CREATE TABLE IF NOT EXISTS youtube_analytics.fact_trending_videos
 (
     video_id           String,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS youtube_analytics.fact_trending_videos
 )
 ENGINE = S3('http://localstack:4566/yt-analytics-bucket/fact_trending_videos/**/*.parquet', 'test', 'test', 'Parquet');
 
--- 2. Bảng Aggregate: Thống kê hiệu suất theo Category
+-- 2. Aggregate table: Performance statistics by Category
 CREATE TABLE IF NOT EXISTS youtube_analytics.agg_category_stats
 (
     country              String,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS youtube_analytics.agg_category_stats
 )
 ENGINE = S3('http://localstack:4566/yt-analytics-bucket/agg_category_stats/*.parquet', 'test', 'test', 'Parquet');
 
--- 3. Bảng Aggregate: Hiệu suất theo kênh (Channel)
+-- 3. Bảng Aggregate: Performance statistics by Channel
 CREATE TABLE IF NOT EXISTS youtube_analytics.agg_channel_performance
 (
     country              String,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS youtube_analytics.agg_channel_performance
 )
 ENGINE = S3('http://localstack:4566/yt-analytics-bucket/agg_channel_performance/*.parquet', 'test', 'test', 'Parquet');
 
--- 4. Bảng Aggregate: Xu hướng theo thời gian (Time Analysis)
+-- 4. Aggregate table: Time Analysis
 CREATE TABLE IF NOT EXISTS youtube_analytics.agg_time_analysis
 (
     country              String,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS youtube_analytics.agg_time_analysis
 ENGINE = S3('http://localstack:4566/yt-analytics-bucket/agg_time_analysis/*.parquet', 'test', 'test', 'Parquet');
 
 
--- 5. Bảng Dimension: Thông tin Quốc Gia (dim_country)
+-- 5. Dimension table: Country information
 CREATE TABLE IF NOT EXISTS youtube_analytics.dim_country
 (
     country      String,
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS youtube_analytics.dim_country
 )
 ENGINE = TinyLog;
 
--- Nạp sẵn thông tin mapping mã nước và tên đầy đủ của 10 quốc gia trong dataset Kaggle
+-- Insert dummy data for 10 countries in dataset
 INSERT INTO youtube_analytics.dim_country VALUES 
 ('US', 'United States'),
 ('GB', 'United Kingdom'),

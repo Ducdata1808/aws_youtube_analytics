@@ -1,7 +1,7 @@
 #!/bin/bash
 echo "=========== Creating IAM Roles & Policies ==========="
 
-# 1. Tạo Trust Policy (Quyền cho phép Lambda assume Role này)
+# 1. Create trust policy (Permission for Lambda to assume this role)
 TRUST_POLICY='{
   "Version": "2012-10-17",
   "Statement": [
@@ -15,13 +15,13 @@ TRUST_POLICY='{
   ]
 }'
 
-# 2. Tạo IAM Role cho Lambda
+# 2. Create IAM Role for Lambda
 echo "Creating role: lambda-s3-role..."
 awslocal iam create-role \
   --role-name lambda-s3-role \
   --assume-role-policy-document "$TRUST_POLICY"
 
-# 3. Tạo Policy cho Lambda Cleanse (Read Landing -> Write Cleansed)
+# 3. Create Policy for Lambda Cleanse (Read Landing -> Write Cleansed)
 CLEANSE_POLICY='{
   "Version": "2012-10-17",
   "Statement": [
@@ -65,12 +65,12 @@ CLEANSE_POLICY_ARN=$(awslocal iam create-policy \
   --policy-document "$CLEANSE_POLICY" \
   --query 'Policy.Arn' --output text)
 
-# Attach Cleanse Policy vào lambda-s3-role
+# Attach Cleanse Policy to lambda-s3-role
 awslocal iam attach-role-policy \
   --role-name lambda-s3-role \
   --policy-arn "$CLEANSE_POLICY_ARN"
 
-# 4. Tạo Policy cho Lambda Transform (Read Cleansed -> Write Analytics)
+# 4. Create Policy for Lambda Transform (Read Cleansed -> Write Analytics)
 TRANSFORM_POLICY='{
   "Version": "2012-10-17",
   "Statement": [
@@ -114,12 +114,12 @@ TRANSFORM_POLICY_ARN=$(awslocal iam create-policy \
   --policy-document "$TRANSFORM_POLICY" \
   --query 'Policy.Arn' --output text)
 
-# Attach Transform Policy vào lambda-s3-role
+# Attach Transform Policy to lambda-s3-role
 awslocal iam attach-role-policy \
   --role-name lambda-s3-role \
   --policy-arn "$TRANSFORM_POLICY_ARN"
 
-# 5. Tạo Policy cho Client/Airflow Upload lên Landing Bucket (s3-landing-write-policy)
+# 5. Create Policy for Client/Airflow Upload to Landing Bucket (s3-landing-write-policy)
 LANDING_WRITE_POLICY='{
   "Version": "2012-10-17",
   "Statement": [
@@ -143,7 +143,7 @@ awslocal iam create-policy \
   --policy-name s3-landing-write-policy \
   --policy-document "$LANDING_WRITE_POLICY"
 
-# 6. Tạo Policy cho ClickHouse đọc dữ liệu từ Analytics Bucket (s3-analytics-read-policy)
+# 6. Create Policy for ClickHouse to read data from Analytics Bucket (s3-analytics-read-policy)
 ANALYTICS_READ_POLICY='{
   "Version": "2012-10-17",
   "Statement": [
@@ -167,7 +167,7 @@ ANALYTICS_READ_POLICY_ARN=$(awslocal iam create-policy \
   --policy-document "$ANALYTICS_READ_POLICY" \
   --query 'Policy.Arn' --output text)
 
-# 7. Tạo IAM User cho ClickHouse và gán policy chỉ đọc
+# 7. Create IAM User for ClickHouse and attach read policy
 echo "Creating user: clickhouse-user..."
 awslocal iam create-user --user-name clickhouse-user
 
@@ -175,17 +175,17 @@ awslocal iam attach-user-policy \
   --user-name clickhouse-user \
   --policy-arn "$ANALYTICS_READ_POLICY_ARN"
 
-# Tạo Access Key ngẫu nhiên từ LocalStack
+# Generate Access Key from LocalStack
 echo "Generating Access Key for clickhouse-user..."
 CREDS=$(awslocal iam create-access-key --user-name clickhouse-user)
 
-# Trích xuất AccessKeyId và SecretAccessKey từ JSON trả về
+# Extract AccessKeyId and SecretAccessKey from JSON response
 NEW_ACCESS_KEY=$(echo "$CREDS" | grep -o '"AccessKeyId": "[^"]*' | grep -o '[^"]*$')
 NEW_SECRET_KEY=$(echo "$CREDS" | grep -o '"SecretAccessKey": "[^"]*' | grep -o '[^"]*$')
 
 echo "Generated Key ID: $NEW_ACCESS_KEY"
 
-# Thay thế trực tiếp trong file s3_storage.xml được chia sẻ qua mount volume
+# Replace directly in the s3_storage.xml file shared via volume mount
 CLICKHOUSE_CONFIG="/opt/clickhouse-config/s3_storage.xml"
 
 if [ -f "$CLICKHOUSE_CONFIG" ]; then
@@ -197,11 +197,11 @@ else
   echo "Warning: ClickHouse config file not found at $CLICKHOUSE_CONFIG"
 fi
 
-# Yêu cầu Clickhouse reload lại cấu hình (lưu ý: ClickHouse tự động reload config khi phát hiện file XML thay đổi, 
-# nhưng nếu cần, ta vẫn có thể dùng client trên host để reload hoặc cứ để ClickHouse tự nhận diện sau vài giây)
+# Request Clickhouse to reload configuration (note: ClickHouse automatically reloads config when detecting XML file changes, 
+# but if needed, we can still use the client on the host to reload or let ClickHouse auto-detect after a few seconds)
 echo "ClickHouse will auto-reload the configuration change."
 
-# 8. Verify kết quả
+# 8. Verify results
 echo "List of IAM Roles:"
 awslocal iam list-roles --query 'Roles[*].RoleName'
 

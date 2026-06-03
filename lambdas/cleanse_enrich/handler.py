@@ -6,16 +6,16 @@ import boto3
 import pandas as pd
 from datetime import datetime
 
-# LocalStack endpoint cấu hình (nếu chạy local ngoài Lambda)
+# LocalStack endpoint configuration (if running locally outside Lambda)
 LOCALSTACK_HOSTNAME = os.environ.get("LOCALSTACK_HOSTNAME", "localhost")
 AWS_REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
-# Kiểm tra xem có đang chạy cục bộ (ngoài LocalStack container) hay không
-# Nếu chạy trong LocalStack, biến LOCALSTACK_HOSTNAME hoặc AWS_SAM_LOCAL sẽ tồn tại
+# Check if running locally (outside LocalStack container)
+# If running in LocalStack, LOCALSTACK_HOSTNAME or AWS_SAM_LOCAL will exist
 IS_LOCAL = not os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
 
 if IS_LOCAL:
-    print("Chạy ở local: Cấu hình boto3 kết nối tới LocalStack endpoint (http://127.0.0.1:4566)")
+    print("Running locally: Configuring boto3 to connect to LocalStack endpoint (http://127.0.0.1:4566)")
     s3_client = boto3.client(
         "s3",
         endpoint_url="http://127.0.0.1:4566",
@@ -31,7 +31,7 @@ def get_country_from_filename(filename):
     return match.group(1) if match else "US"
 
 def lambda_handler(event, context):
-    print(f"Nhận event: {json.dumps(event)}")
+    print(f"Event received: {json.dumps(event)}")
     
     country = event.get("country", "US")
     csv_key = f"{country}videos.csv"
@@ -40,7 +40,7 @@ def lambda_handler(event, context):
     landing_bucket = os.environ.get("LANDING_BUCKET", "yt-landing-bucket")
     cleansed_bucket = os.environ.get("CLEANSED_BUCKET", "yt-cleansed-bucket")
     
-    print(f"Đang xử lý dữ liệu quốc gia: {country} từ {landing_bucket} -> {cleansed_bucket}")
+    print(f"Processing data for country: {country} from {landing_bucket} -> {cleansed_bucket}")
     
     try:
         json_obj = s3_client.get_object(Bucket=landing_bucket, Key=json_key)
@@ -55,16 +55,16 @@ def lambda_handler(event, context):
         csv_obj = s3_client.get_object(Bucket=landing_bucket, Key=csv_key)
         csv_data = csv_obj["Body"].read()
         
-        # Thử đọc bằng UTF-8 trước, nếu lỗi thì chuyển sang latin-1
+        # Try reading with UTF-8 first, if it fails, switch to latin-1
         try:
             df = pd.read_csv(io.BytesIO(csv_data), on_bad_lines="skip", encoding="utf-8")
         except UnicodeDecodeError:
-            print(f"Lưu ý: Không thể decode UTF-8 cho {csv_key}. Chuyển sang sử dụng encoding='latin-1'")
+            print(f"Note: Cannot decode UTF-8 for {csv_key}. Switching to encoding='latin-1'")
             df = pd.read_csv(io.BytesIO(csv_data), on_bad_lines="skip", encoding="latin-1")
         
-        print(f"Đọc thành công {len(df)} dòng dữ liệu từ {csv_key}")
+        print(f"Successfully read {len(df)} rows of data from {csv_key}")
         
-        # Clean & Enrich dữ liệu
+        # Clean & Enrich data
         def parse_trending_date(d_str):
             try:
                 if pd.isna(d_str) or not isinstance(d_str, str):
@@ -125,36 +125,36 @@ def lambda_handler(event, context):
             Body=parquet_buffer.getvalue()
         )
         
-        print(f"Lưu thành công Parquet lên S3: s3://{cleansed_bucket}/{target_key} ({len(df_cleaned)} dòng)")
+        print(f"Successfully saved Parquet to S3: s3://{cleansed_bucket}/{target_key} ({len(df_cleaned)} rows)")
         
         return {
             "statusCode": 200,
             "body": json.dumps({
-                "message": f"Cleanse & Enrich thành công cho {country}",
+                "message": f"Cleanse & Enrich successfully for {country}",
                 "records_processed": len(df_cleaned),
                 "cleansed_s3_uri": f"s3://{cleansed_bucket}/{target_key}"
             })
         }
         
     except Exception as e:
-        print(f"LỖI trong Lambda cleanse_enrich cho quốc gia {country}: {str(e)}")
+        print(f"ERROR in Lambda cleanse_enrich for country {country}: {str(e)}")
         import traceback
         traceback.print_exc()
         raise e
 
-# Thêm block này để chạy test trực tiếp khi gọi python handler.py
+# Add this block to test directly when calling python handler.py
 if __name__ == "__main__":
     os.environ["LANDING_BUCKET"] = os.environ.get("LANDING_BUCKET", "yt-landing-bucket")
     os.environ["CLEANSED_BUCKET"] = os.environ.get("CLEANSED_BUCKET", "yt-cleansed-bucket")
     
-    print("--- CHẠY THỬ LAMBDA CLEANSE ENRICH LOCALLY (ALL COUNTRIES) ---")
+    print("--- TESTING LAMBDA CLEANSE ENRICH LOCALLY (ALL COUNTRIES) ---")
     
-    # Liệt kê tất cả các file trong Landing Bucket để tìm các quốc gia có dữ liệu
+    # List all files in Landing Bucket to find countries with data
     try:
         response = s3_client.list_objects_v2(Bucket=os.environ["LANDING_BUCKET"])
         contents = response.get("Contents", [])
         
-        # Tìm các file CSV dạng [XX]videos.csv
+        # Find CSV files of the form [XX]videos.csv
         countries = []
         for obj in contents:
             key = obj["Key"]
@@ -163,17 +163,17 @@ if __name__ == "__main__":
                 countries.append(match.group(1))
                 
         if not countries:
-            print("Không tìm thấy tệp tin CSV của quốc gia nào trong landing bucket.")
-            print("Vui lòng chạy scripts/upload_to_landing.py trước!")
+            print("No country CSV files found in Landing Bucket.")
+            print("Please run scripts/upload_to_landing.py first!")
         else:
-            print(f"Tìm thấy dữ liệu của các quốc gia trong Landing Bucket: {countries}")
+            print(f"Found data for countries in Landing Bucket: {countries}")
             for country in countries:
-                print(f"\n>> Đang xử lý quốc gia: {country} ...")
+                print(f"\n>> Processing country: {country} ...")
                 try:
                     result = lambda_handler({"country": country}, None)
-                    print(f"Xử lý thành công {country}: {result}")
+                    print(f"Processing successful {country}: {result}")
                 except Exception as err:
-                    print(f"Lỗi khi xử lý quốc gia {country}: {err}")
+                    print(f"Error processing country {country}: {err}")
                     
     except Exception as e:
-        print(f"Không thể kết nối hoặc lấy danh sách file từ S3 landing bucket: {e}")
+        print(f"Could not connect to or list files from S3 landing bucket: {e}")
