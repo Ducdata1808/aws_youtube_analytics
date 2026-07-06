@@ -1,9 +1,6 @@
 # 📊 YouTube Trending Analytics Engineering Project
 
 This project builds a comprehensive **Data Pipeline (ELT/ETL)** to collect, clean, enrich, transform, analyze, and visualize the **Trending YouTube Video Statistics** dataset from Kaggle.
-
-The system is designed to simulate a cloud environment locally using **LocalStack** (S3, Lambda, IAM, CloudWatch), orchestrate the pipeline workflow using **Apache Airflow**, store large-scale analytical data in a high-performance columnar database using **ClickHouse OLAP**, and build interactive visualizations using **PowerBI**.
-
 ---
 
 ## 🏗️ System Architecture
