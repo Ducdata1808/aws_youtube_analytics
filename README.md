@@ -146,8 +146,3 @@ Here is a snapshot of the integrated visual dashboard:
 
 ---
 
-## 📝 Key Insights Visualized
-*   **Trending Metrics**: Total trending entries, total view counts, like ratios, and comments.
-*   **Engagement Rate & Like Ratio**: User interaction behaviors mapped across distinct video categories and geographical locations.
-*   **Time-to-Trend Duration**: Metrics indicating the delay (in days) between the initial publish time and when the video officially entered the trending list.
-*   **Top Channels & Categories**: Ranks for highest performing channels and most popular topics in each country.
