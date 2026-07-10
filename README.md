@@ -140,7 +140,6 @@ The PowerBI layout is modeled as a classic **Star Schema** utilizing the `dim_co
 Tables are joined in a **1-to-many (1:*)** layout using the `country` key. Cross filter direction is configured to **Single** (from dimension to fact tables) to guarantee high performance and proper query planning.
 
 ### Dashboard Preview
-Here is a snapshot of the integrated visual dashboard:
 
 ![YouTube Trending Analytics Dashboard](images/dashboard.jpg)
 
