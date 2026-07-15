@@ -105,15 +105,6 @@ docker-compose up -d
 2.  **`invoke_cleanse_enrich_XX`** *(10 parallel tasks)*: Calls Lambda function `cleanse-enrich` to read the raw files, parse/fix Japanese/Korean encoding errors, normalize publish times, join category mappings, and output partition-optimized Parquet to `yt-cleansed-bucket`.
 3.  **`invoke_transform_analytics`**: Waits for all cleansing tasks, then triggers the second Lambda function `transform-analytics` to assemble the Star Schema facts and aggregations inside `yt-analytics-bucket`.
 
-### Step 6: Validate ClickHouse Integration
-Once Airflow marks all tasks as successful, the analytics files on S3 are mapped to ClickHouse tables. Access ClickHouse CLI to inspect records:
-```bash
-docker exec -it clickhouse clickhouse-client -d youtube_analytics --password clickhouse123
-```
-Run an SQL query to verify target records:
-```sql
-SELECT count() FROM fact_trending_videos;
-```
 
 ---
 
